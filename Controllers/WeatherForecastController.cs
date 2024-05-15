@@ -18,6 +18,7 @@ namespace EmployeeManagement.Controllers
             _logger = logger;
         }
 
+        /*
         [HttpGet(Name = "GetWeatherForecast")]
         public IEnumerable<WeatherForecast> Get()
         {
@@ -29,5 +30,6 @@ namespace EmployeeManagement.Controllers
             })
             .ToArray();
         }
+        */
     }
 }
