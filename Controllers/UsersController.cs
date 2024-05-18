@@ -8,7 +8,9 @@ using Microsoft.EntityFrameworkCore;
 using EmployeeManagement.Data;
 using EmployeeManagement.Models;
 using EmployeeManagement.Models.DTO;
-using System.Data.SqlClient;
+using Microsoft.Data.SqlClient;
+using static System.Runtime.InteropServices.JavaScript.JSType;
+using System.Security.Cryptography;
 
 namespace EmployeeManagement.Controllers
 {
@@ -24,6 +26,47 @@ namespace EmployeeManagement.Controllers
             _context = context;
         }
 
+        //-----CREATE-----//
+        [HttpPost("Create")]
+        public async Task<ActionResult<Users>> Create([Bind("FullName, DOB, Gender, Address, Email, JoinedDate, Phone, IdPos, IdRole, Password")] UsersDTO user)
+        {
+            if (!ModelState.IsValid)
+            {
+                var errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage);
+                var errorMessages = string.Join("; ", errors);
+                Console.WriteLine($"ModelState is invalid: {errorMessages}");
+                return BadRequest(ModelState);
+            }
+
+            var parameters = new[]
+            {
+                new SqlParameter("@FullName", user.FullName),
+                new SqlParameter("@DOB", user.DOB),
+                new SqlParameter("@Gender", user.Gender),
+                new SqlParameter("@Address", user.Address),
+                new SqlParameter("@Email", user.Email ),
+                new SqlParameter("@JoinedDate", user.JoinedDate),
+                new SqlParameter("@Phone", user.Phone),
+                new SqlParameter("@IdPos", user.IdPos),
+                new SqlParameter("@IdRole", user.IdRole),
+                new SqlParameter("@Password", user.Password)
+            };
+
+            try
+            { 
+                var result = _context.Database
+                 .SqlQueryRaw<Users>("INSERT_USER @FullName, @DOB, @Gender, @Address, @Email, @JoinedDate, @Phone, @IdPos, @IdRole, @Password", parameters)
+                 .ToList();
+
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+            }
+            return Ok(user);
+        }
+
+        //-----READ-----//
         // GET: Users
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Users>>> GetAllUsers()
@@ -50,62 +93,54 @@ namespace EmployeeManagement.Controllers
             return user;
         }
 
-        // POST: Users/Create
-        [HttpPost("/Create")]
-        public async Task<ActionResult<Users>> Create(Users user)
+        //-----UPDATE-----//
+        [HttpPut("/Update/{id}")]
+        public async Task<ActionResult<Users>> Update(string id, [Bind("Id, FullName,DOB,Gender,Address,Email,JoinedDate,Phone,IdPos,IdRole,Password")] Users user)
         {
-            if (!ModelState.IsValid)
+            if (!id.Equals(user.Id))
             {
-                var errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage);
-                var errorMessages = string.Join("; ", errors);
-                Console.WriteLine($"ModelState is invalid: {errorMessages}");
-                return BadRequest(ModelState);
+                return NotFound();
             }
 
-            var parameters = new[]
+            if (ModelState.IsValid)
             {
-            new SqlParameter("@FullName", user.FullName ?? (object)DBNull.Value),
-            new SqlParameter("@DOB", user.DOB),
-            new SqlParameter("@Gender", user.Gender ?? (object)DBNull.Value),
-            new SqlParameter("@Address", user.Address ?? (object)DBNull.Value),
-            new SqlParameter("@Email", user.Email ?? (object)DBNull.Value),
-            new SqlParameter("@JoinedDate", user.JoinedDate),
-            new SqlParameter("@Phone", user.Phone ?? (object)DBNull.Value),
-            new SqlParameter("@IdPos", user.IdPos ?? (object)DBNull.Value),
-            new SqlParameter("@IdRole", user.IdRole),
-            new SqlParameter("@Password", user.Password ?? (object)DBNull.Value)
-            };
-
-            try
-            {
-                await _context.Database.ExecuteSqlRawAsync(
-                    "EXEC dbo.INSERT_USER @FullName, @DOB, @Gender, @Address, @Email, @JoinedDate, @Phone, @IdPos, @IdRole, @Password",
-                    parameters);
-                await _context.SaveChangesAsync();
+                try
+                {
+                    _context.Update(user);
+                    await _context.SaveChangesAsync();
+                }
+                catch (DbUpdateConcurrencyException)
+                {
+                    if (GetUser(user.Id) == null)
+                    {
+                        return NotFound();
+                    }
+                }
             }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error executing stored procedure: {ex.Message}");
-            }
-
-            return CreatedAtAction(nameof(GetUser), new { id = user.Id }, user);
+            return user;
         }
 
+        //-----DELETE-----//
         // DELETE: Users/Delete
-        [HttpDelete("/Delete/{id}")]
-        [ValidateAntiForgeryToken]
+        [HttpDelete("Delete/{id}")]
         public async Task<ActionResult<Users>> DeleteUser(string id)
         {
-            id = id.Trim();
-            var user = await _context.Users
-                .FirstOrDefaultAsync(m => m.Id == id);
-            if (user != null)
+            if (string.IsNullOrWhiteSpace(id))
             {
-                _context.Users.Remove(user);
+                return BadRequest("Invalid ID");
             }
 
+            var user = await _context.Users.FirstOrDefaultAsync(m => m.Id == id.Trim());
+
+            if (user == null)
+            {
+                return NotFound();
+            }
+
+            _context.Users.Remove(user);
             await _context.SaveChangesAsync();
-            return RedirectToAction(nameof(GetAllUsers));
+
+            return Ok(user);
         }
 
         /*

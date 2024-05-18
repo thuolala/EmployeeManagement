@@ -10,7 +10,9 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddDbContext<EmployeeManagementContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("EmployeeManagementContext")));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("EmployeeManagementContext"))
+           .EnableSensitiveDataLogging()
+           .LogTo(Console.WriteLine, LogLevel.Information));
 builder.Services.AddControllersWithViews();
 
 var app = builder.Build();

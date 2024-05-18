@@ -1,9 +1,18 @@
-﻿namespace EmployeeManagement.Models
+﻿using EmployeeManagement.Models.DTO;
+
+namespace EmployeeManagement.Models
 {
     public class Users
     {
+        private UsersDTO user;
+
         public Users()
         {
+        }
+
+        public Users(UsersDTO user)
+        {
+            this.user = user;
         }
 
         // Without Id field

@@ -6,7 +6,7 @@ GO
 
 /* POSITIONS */
 CREATE TABLE Positions (
-	Id varchar(10) PRIMARY KEY,
+	Id varchar(5) PRIMARY KEY,
 	PositionName nvarchar(100) NOT NULL
 )
 
@@ -18,7 +18,7 @@ CREATE TABLE Roles (
 
 /* USERS */
 CREATE TABLE Users (
-	Id varchar(20) PRIMARY KEY, 
+	Id varchar(6) PRIMARY KEY, 
 	FullName nvarchar(200) NOT NULL,
 	DOB datetime, 
 	Gender nvarchar(50) NOT NULL,
@@ -26,19 +26,17 @@ CREATE TABLE Users (
 	Email varchar(100) NOT NULL,
 	JoinedDate datetime NOT NULL,
 	Phone varchar(10) NOT NULL, 
-	IdPos varchar(10) NOT NULL, 
-	IdRole int NOT NULL
+	IdPos varchar(5) NOT NULL, 
+	IdRole int NOT NULL,
+	Password nvarchar(MAX) NOT NULL
 )
 ALTER TABLE Users ADD CONSTRAINT FK_IdPos FOREIGN KEY(IdPos) REFERENCES Positions(Id) 
 ALTER TABLE Users ADD CONSTRAINT FK_IdRole FOREIGN KEY(IdRole) REFERENCES Roles(Id) 
-ALTER TABLE Users ADD Password text NOT NULL
-ALTER TABLE Users ADD CONSTRAINT Unique_Email UNIQUE (Email);
-ALTER TABLE Users ALTER COLUMN Password nvarchar(MAX) NOT NULL
 
 /* Salary */
 CREATE TABLE Salary ( 
 	Id int PRIMARY KEY IDENTITY(1, 1), 
-	IdEmployee varchar(20),
+	UserId varchar(6),
 	Base bigint NOT NULL,
 	AllowedOff int NOT NULL, 
 	ActualOff int NOT NULL, 
@@ -47,7 +45,7 @@ CREATE TABLE Salary (
 	Final bigint NOT NULL,
 	Date datetime NOT NULL
 )
-ALTER TABLE Salary ADD CONSTRAINT FK_IdEmployee_Salary FOREIGN KEY(IdEmployee) REFERENCES Users(Id) 
+ALTER TABLE Salary ADD CONSTRAINT FK_UserId_Salary FOREIGN KEY(UserId) REFERENCES Users(Id) 
 
 /* Forms */ 
 CREATE TABLE Forms (
@@ -59,18 +57,20 @@ CREATE TABLE Forms (
 CREATE TABLE Files (
 	Id int PRIMARY KEY IDENTITY(1,1), 
 	IdForm int NOT NULL,
-	IdEmployee varchar(20) NOT NULL,
+	UserId varchar(6) NOT NULL,
 	DateCreated datetime NOT NULL, 
+	FormType varchar(10) NOT NULL,
 	FormName nvarchar(200) NOT NULL,
 	FormContent varbinary(MAX) NOT NULL
 )
 ALTER TABLE Files ADD CONSTRAINT FK_IdForm FOREIGN KEY(IdForm) REFERENCES Forms(Id) 
-ALTER TABLE Files ADD CONSTRAINT FK_IdEmployee FOREIGN KEY(IdEmployee) REFERENCES Users(Id) 
+ALTER TABLE Files ADD CONSTRAINT FK_UserId_Files FOREIGN KEY(UserId) REFERENCES Users(Id) 
 
 
 /***********************************/
 /* INSERT */ 
 /* Positions */
+/*
 CREATE PROCEDURE INSERT_POS
 (@Id varchar(10), @PositionName nvarchar(100))
 AS
@@ -78,6 +78,7 @@ BEGIN
 	INSERT INTO Positions VALUES (@Id, @PositionName)
 END
 GO
+*/
 
 /* Users */
 /* Count ID */
@@ -86,16 +87,17 @@ RETURNS INT
 AS
 BEGIN
 	DECLARE @COUNT INT
-	SELECT @COUNT =  (SELECT COUNT(Id) FROM Users)
+	SELECT @COUNT =  (SELECT TOP 1 CONVERT(CHAR, CAST(SUBSTRING(Id, 2, 5) AS INT))
+					 FROM Users ORDER BY Id DESC)
 	RETURN @COUNT
 END
 
 /* Get ID */
 CREATE FUNCTION GET_UID()
-RETURNS VARCHAR(20)
+RETURNS VARCHAR(6)
 AS
 BEGIN
-	DECLARE @Id VARCHAR(20)
+	DECLARE @Id VARCHAR(6)
 	RETURN  (SELECT TOP 1 Id FROM Users ORDER BY Id DESC)
 END
 
@@ -104,8 +106,8 @@ CREATE FUNCTION AUTO_UID()
 RETURNS VARCHAR(20)
 AS
 BEGIN
-	DECLARE @Id VARCHAR(20)
-	DECLARE @NId VARCHAR(20)
+	DECLARE @Id VARCHAR(6)
+	DECLARE @NId VARCHAR(6)
 	SET @Id = dbo.GET_UID()
 	DECLARE @COUNT INT 
 	SET @COUNT = dbo.LAST_UID()
@@ -136,7 +138,7 @@ CREATE PROCEDURE INSERT_USER (
 	@Password nvarchar(MAX))
 AS
 BEGIN
-	DECLARE @Id VARCHAR(20)
+	DECLARE @Id VARCHAR(6)
 	SET @Id = dbo.AUTO_UID()
 	INSERT INTO Users VALUES (@Id, @FullName, @DOB, @Gender, @Address, @Email, @JoinedDate, @Phone, @IdPos, @IdRole, @Password)
 END
@@ -213,6 +215,7 @@ END;
 
 /* UPDATE */ 
 /* Positions */
+/*
 CREATE PROCEDURE UPDATE_POS
 (@Id varchar(10), @PositionName nvarchar(100))
 AS
@@ -220,10 +223,11 @@ BEGIN
 	UPDATE Positions SET PositionName = @PositionName WHERE Id = @Id 
 END
 GO
+*/
 
 /* Users */ 
 CREATE PROCEDURE UPDATE_USER (
-	@Id varchar(20),
+	@Id varchar(6),
 	@FullName nvarchar(200),
 	@DOB datetime, 
 	@Gender nvarchar(50),
