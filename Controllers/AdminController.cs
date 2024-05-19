@@ -1,96 +1,69 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Rendering;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using EmployeeManagement.Data;
 using EmployeeManagement.Models;
 using EmployeeManagement.Models.DTO;
 using Microsoft.Data.SqlClient;
-using static System.Runtime.InteropServices.JavaScript.JSType;
-using System.Security.Cryptography;
+using Microsoft.AspNetCore.Authorization;
+using EmployeeManagement.Services;
 
 namespace EmployeeManagement.Controllers
 {
+    [Authorize(Policy = "Admin")]
     [ApiController]
-    [Route("[controller]")]
+    [Route("api/[controller]")]
 
-    public class UsersController : ControllerBase
+    public class AdminController : ControllerBase
     {
-        private readonly EmployeeManagementContext _context;
+        private readonly IUserService _userService;
+        private readonly IFormService _formService;
+        private readonly ISalaryService _salaryService;
 
-        public UsersController(EmployeeManagementContext context)
+        public AdminController(IUserService userService, IFormService formService, ISalaryService salaryService)
         {
-            _context = context;
+            _userService = userService;
+            _formService = formService;
+            _salaryService = salaryService;
         }
 
         //-----CREATE-----//
-        [HttpPost("Create")]
+        [HttpPost("/Create")]
         public async Task<ActionResult<Users>> Create([Bind("FullName, DOB, Gender, Address, Email, JoinedDate, Phone, IdPos, IdRole, Password")] UsersDTO user)
         {
             if (!ModelState.IsValid)
             {
-                var errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage);
-                var errorMessages = string.Join("; ", errors);
-                Console.WriteLine($"ModelState is invalid: {errorMessages}");
                 return BadRequest(ModelState);
             }
+            await _userService.AddUserAsync(user);
 
-            var parameters = new[]
-            {
-                new SqlParameter("@FullName", user.FullName),
-                new SqlParameter("@DOB", user.DOB),
-                new SqlParameter("@Gender", user.Gender),
-                new SqlParameter("@Address", user.Address),
-                new SqlParameter("@Email", user.Email ),
-                new SqlParameter("@JoinedDate", user.JoinedDate),
-                new SqlParameter("@Phone", user.Phone),
-                new SqlParameter("@IdPos", user.IdPos),
-                new SqlParameter("@IdRole", user.IdRole),
-                new SqlParameter("@Password", user.Password)
-            };
-
-            try
-            { 
-                var result = _context.Database
-                 .SqlQueryRaw<Users>("INSERT_USER @FullName, @DOB, @Gender, @Address, @Email, @JoinedDate, @Phone, @IdPos, @IdRole, @Password", parameters)
-                 .ToList();
-
-                await _context.SaveChangesAsync();
-            }
-            catch (Exception ex)
-            {
-            }
             return Ok(user);
         }
 
         //-----READ-----//
         // GET: Users
-        [HttpGet]
+        [HttpGet("/AllUsers")]
         public async Task<ActionResult<IEnumerable<Users>>> GetAllUsers()
         {
-            return _context.Users.ToArray();
+            var users = await _userService.GetAllUsersAsync();
+            return Ok(users);
         }
 
         // GET: User/id
         [HttpGet("/User/{id}")]
         public async Task<ActionResult<Users>> GetUser(string id)
         {
-            if (id == null)
+            if (string.IsNullOrEmpty(id))
             {
-                return NotFound();
+                return BadRequest("Invalid ID");
             }
 
-            var user = await _context.Users
-                .FirstOrDefaultAsync(m => m.Id == id);
+            var user = await _userService.GetUserByIdAsync(id);
             if (user == null)
             {
                 return NotFound();
             }
 
-            return user;
+            return Ok(user);
         }
 
         //-----UPDATE-----//
@@ -99,30 +72,33 @@ namespace EmployeeManagement.Controllers
         {
             if (!id.Equals(user.Id))
             {
-                return NotFound();
+                return BadRequest("ID mismatch");
             }
 
-            if (ModelState.IsValid)
+            if (!ModelState.IsValid)
             {
-                try
-                {
-                    _context.Update(user);
-                    await _context.SaveChangesAsync();
-                }
-                catch (DbUpdateConcurrencyException)
-                {
-                    if (GetUser(user.Id) == null)
-                    {
-                        return NotFound();
-                    }
-                }
+                return BadRequest(ModelState);
             }
-            return user;
+
+            try
+            {
+                await _userService.UpdateUserAsync(user);
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (await _userService.GetUserByIdAsync(user.Id) == null)
+                {
+                    return NotFound();
+                }
+                throw;
+            }
+
+            return Ok(user);
         }
 
         //-----DELETE-----//
         // DELETE: Users/Delete
-        [HttpDelete("Delete/{id}")]
+        [HttpDelete("/Delete/{id}")]
         public async Task<ActionResult<Users>> DeleteUser(string id)
         {
             if (string.IsNullOrWhiteSpace(id))
@@ -130,17 +106,127 @@ namespace EmployeeManagement.Controllers
                 return BadRequest("Invalid ID");
             }
 
-            var user = await _context.Users.FirstOrDefaultAsync(m => m.Id == id.Trim());
-
+            var user = await _userService.GetUserByIdAsync(id);
             if (user == null)
             {
                 return NotFound();
             }
 
-            _context.Users.Remove(user);
-            await _context.SaveChangesAsync();
-
+            await _userService.DeleteUserAsync(id);
             return Ok(user);
+        }
+
+        //-----FORMS-----//
+        // GET:/AllForms
+        [HttpGet("/AllForms")]
+        public async Task<ActionResult<IEnumerable<Form>>> GetAllForms()
+        {
+            var forms = await _formService.GetAllFormsAsync();
+            return Ok(forms);
+        }
+
+        // GET: /Form/{id}
+        [HttpGet("/Form/{id}")]
+        public async Task<ActionResult<Form>> GetForm(int id)
+        {
+            var form = await _formService.GetFormByIdAsync(id);
+            if (form == null)
+            {
+                return NotFound();
+            }
+
+            return Ok(form);
+        }
+
+        // GET: /ByUser/{userId}
+        [HttpGet("/FormByUser/{userId}")]
+        public async Task<ActionResult<IEnumerable<Form>>> GetFormsByUser(string userId)
+        {
+            if (string.IsNullOrEmpty(userId))
+            {
+                return BadRequest("Invalid User ID");
+            }
+
+            var forms = await _formService.GetFormByUserIdAsync(userId);
+            return Ok(forms);
+        }
+
+        //-----SALARY-----//
+        // GET:/AllSalaries
+        [HttpGet("/AllSalaries")]
+        public async Task<ActionResult<IEnumerable<Salary>>> GetAllSalaries()
+        {
+            var salaries = await _salaryService.GetAllSalariesAsync();
+            return Ok(salaries);
+        }
+
+        // GET: /Salary/{id}
+        [HttpGet("/Salary/{id}")]
+        public async Task<ActionResult<Salary>> GetSalary(int id)
+        {
+            var salary = await _salaryService.GetSalaryByIdAsync(id);
+            if (salary == null)
+            {
+                return NotFound();
+            }
+
+            return Ok(salary);
+        }
+
+        // GET: /ByUser/{userId}
+        [HttpGet("/SalaryByUser/{userId}")]
+        public async Task<ActionResult<IEnumerable<Salary>>> GetSalaryByUser(string userId)
+        {
+            if (string.IsNullOrEmpty(userId))
+            {
+                return BadRequest("Invalid User ID");
+            }
+
+            var salary = await _salaryService.GetSalaryByUserIdAsync(userId);
+            return Ok(salary);
+        }
+
+        // POST: AddSalary
+        [HttpPost("/AddSalary")]
+        public async Task<ActionResult<Salary>> AddSalary(Salary salary)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            await _salaryService.AddSalaryAsync(salary);
+
+            return Ok(salary);
+        }
+
+        // PUT: UpdateSlary
+        [HttpPut("/UpdateSalary/{uid}")]
+        public async Task<ActionResult<Salary>> UpdateSalary(string uid, Salary salary)
+        {
+            if (!uid.Equals(salary.UserId))
+            {
+                return BadRequest("ID mismatch");
+            }
+
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            try
+            {
+                await _salaryService.UpdateSalaryAsync(salary);
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (await _salaryService.GetSalaryByUserIdAsync(salary.UserId) == null)
+                {
+                    return NotFound();
+                }
+                throw;
+            }
+
+            return Ok(salary);
         }
 
         /*

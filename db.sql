@@ -47,24 +47,16 @@ CREATE TABLE Salary (
 )
 ALTER TABLE Salary ADD CONSTRAINT FK_UserId_Salary FOREIGN KEY(UserId) REFERENCES Users(Id) 
 
-/* Forms */ 
-CREATE TABLE Forms (
-	Id int PRIMARY KEY IDENTITY(1,1), 
-	FormName nvarchar(200) NOT NULL
-)
-
 /* Files */ 
-CREATE TABLE Files (
+CREATE TABLE Form (
 	Id int PRIMARY KEY IDENTITY(1,1), 
-	IdForm int NOT NULL,
 	UserId varchar(6) NOT NULL,
 	DateCreated datetime NOT NULL, 
 	FormType varchar(10) NOT NULL,
 	FormName nvarchar(200) NOT NULL,
 	FormContent varbinary(MAX) NOT NULL
 )
-ALTER TABLE Files ADD CONSTRAINT FK_IdForm FOREIGN KEY(IdForm) REFERENCES Forms(Id) 
-ALTER TABLE Files ADD CONSTRAINT FK_UserId_Files FOREIGN KEY(UserId) REFERENCES Users(Id) 
+ALTER TABLE Form ADD CONSTRAINT FK_UserId_Files FOREIGN KEY(UserId) REFERENCES Users(Id) 
 
 
 /***********************************/
@@ -141,6 +133,8 @@ BEGIN
 	DECLARE @Id VARCHAR(6)
 	SET @Id = dbo.AUTO_UID()
 	INSERT INTO Users VALUES (@Id, @FullName, @DOB, @Gender, @Address, @Email, @JoinedDate, @Phone, @IdPos, @IdRole, @Password)
+
+	SELECT @Id AS Id
 END
 GO
 
@@ -281,6 +275,8 @@ EXEC dbo.INSERT_USER N'Pham Huynh Yen Vi', '2005-10-06', N'Female', N'Ho Chi Min
 EXEC dbo.INSERT_USER N'Pham Phuoc Binh', '1976-11-27', N'Male', N'Cao Lanh City', 'nadococaart@gmail.com', '2024-05-15', '0912873642','PM', 1, '123456789' 
 EXEC dbo.INSERT_USER N'Le Thanh Thuy', '1979-01-01', N'Female', N'Cao Lanh City', 'blueclinicdemo@gmail.com', '2024-05-16', '0847608473','BA', 1, '123456789' 
 EXEC dbo.INSERT_USER N'User A', '2022-07-03', N'Female', N'Cao Lanh City', 'coca@gmail.com', '2024-05-13', '11111111','FE', 1, '123456789' 
+EXEC dbo.INSERT_USER N'User A', '2022-07-03', N'Female', N'Cao Lanh City', 'aaa@gmail.com', '2024-05-13', '555555555','FE', 1, '123456789' 
+
 
 /* Salary */
 INSERT INTO Salary VALUES
@@ -289,9 +285,14 @@ INSERT INTO Salary VALUES
 ('U00003', 20000000, 1, 1, 0, 100000, 0, '2024-05-15'),
 ('U00004', 25000000, 1, 0, 0, 0, 0, '2024-05-16')
 
+UPDATE Salary 
+SET Base = 20000000 
+WHERE UserId LIKE 'U00001'
 /*
-DELETE  FROM Salary
+SELECT *  FROM Salary
+SELECT * FROM Positions 
 SELECT * FROM Users 
+SELECT * FROM Form 
 DROP TABLE FILES, FORMS, SALARY, USERS, ROLES, POSITIONS
 ALTER TABLE Users DROP CONSTRAINT FK_IdPos 
 */

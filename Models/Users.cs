@@ -41,5 +41,11 @@ namespace EmployeeManagement.Models
         public string IdPos { get; set; }
         public int IdRole { get; set; }
         public string Password { get; set; }
+
+        /*
+        public ICollection<Form> Forms { get; set; }
+
+        public ICollection<Salary> Salary { get; set; }
+        */
     }
 }
